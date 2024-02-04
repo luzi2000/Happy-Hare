@@ -790,7 +790,7 @@ class Mmu:
             self.calibration_status |= self.CALIBRATED_ENCODER # Pretend we are calibrated to avoid warnings
 
         # The threshold (mm) that determines real encoder movement (set to 1.5 pulses of encoder. i.e. allow one error pulse)
-        self.encoder_min = 1.5 * self.encoder_resolution
+        self.encoder_min = 1
 
         # Configure selector calibration (set with MMU_CALIBRATE_SELECTOR)
         selector_offsets = self.variables.get(self.VARS_MMU_SELECTOR_OFFSETS, None)
@@ -3754,6 +3754,8 @@ class Mmu:
         self._set_filament_direction(self.DIRECTION_UNLOAD)
         self._initialize_filament_position(dwell=None)    # Encoder 0000
 
+        self.filament_pos = self.FILAMENT_POS_UNKNOWN
+        
         if check_state or self.filament_pos == self.FILAMENT_POS_UNKNOWN:
             # Let's determine where filament is and reset state before continuing
             self._recover_filament_pos(message=True)
@@ -3783,6 +3785,7 @@ class Mmu:
             elif self.filament_pos >= self.FILAMENT_POS_IN_EXTRUDER or runout:
                 # Extruder only in runout case to give filament best chance to reach gear
                 detected = self._form_tip_standalone(extruder_only=(extruder_only or runout))
+                self._set_filament_pos_state(self.FILAMENT_POS_IN_EXTRUDER)
                 park_pos = self._get_filament_position()
 
                 if runout:
@@ -4442,7 +4445,8 @@ class Mmu:
             _,_,measured,_ = self._trace_filament_move("Checking extruder", -length, speed=self.extruder_unload_speed, motor="extruder")
             detected = measured > self.encoder_min
             self._log_debug("Filament %s in extruder" % ("detected" if detected else "not detected"))
-            return detected
+            return True
+            #return detected
         return False
 
     def _buzz_gear_motor(self):

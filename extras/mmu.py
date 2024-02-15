@@ -3954,8 +3954,8 @@ class Mmu:
                         detected = False
                     elif synced:
                         # A further test is needed to see if the filament is actually in the extruder
-                        detected, moved = self._test_filament_in_extruder_by_retracting()
-                        park_pos += moved
+                        #detected, moved = self._test_filament_in_extruder_by_retracting()
+                        #park_pos += moved
 
             self._set_filament_position(-park_pos)
             self._set_encoder_distance(initial_encoder_position + park_pos)

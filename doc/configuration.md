@@ -1,3 +1,4 @@
+
 # Detailed Configuration Guide (mmu_parameters.cfg)
 
 This is a sequential walkthrough of the main configuration files for Happy Hare. You should have tertiary understanding and awareness of all the settings but some are essential.  Those are labeled with "IMPORTANT" and you must setup for your MMU setup.
@@ -18,7 +19,7 @@ The first section specifies the type of MMU and is used by Happy Hare to adjust 
 # 1.1 original design, add "s" suffix for Sprigy, "b" for Binky, "t" for Triple-Decky
 #     e.g. "1.1sb" for v1.1 with Springy mod and Binky encoder
 #
-# 2.0 new community ERCFv2, add "h" suffix for ThumperBlocks
+# 2.0 new community ERCFv2
 #
 # Tradrack
 # 1.0 add "e" if using encoder is fitted
@@ -239,14 +240,35 @@ extruder_force_homing: 0
 
 Consult this illustration of a typical toolhead or table of popular configurations to determine these dimensions. `toolhead_extruder_to_nozzle` must always be set accurately. It is a fixed distance based on your extruder and hotend and should not be tuned (use `toolhead_ooze_reduction` to tune out oozing of filament after the load). If you have a toolhead sensor then you also need to specify `toolhead_sensor_to_nozzle`. In practive this is often best performed by placing a fragment of filament at the extruder gears and "extruding" 1mm at a time until the toolhead sensor triggers. If you have a pre-extruder or "entry" sensor then you must also specify the distance from when this sensor triggers to the extruder (gears) entrance. The `toolhead_homing_max` determines the maximum distance from the extruder entrance to advance filament to home to the toolhead sensor - make sure this is a little larger than actually required to compensation for previous inaccuracies that may have occured. To further increase reliability, when unloading the `toolhead_unload_safety margin` is added to every theoretical move distance. Typically 5mm-10mm is sufficient. The starting value for `toolhead_ooze_reduction` shoud be `0` but as you tune printing you may increase it to reduce total loading distance to reduce blobs on the purge tower.
 
-  | Dimension | CW2/Revo | G2E/Rapido |
-  | --------- | -------- | -----------|
-  | toolhead_extruder_to_nozzle | 72 | 87.9 |
-  | toolhead_sensor_to_nozzle   | 62 | 67.9 |
-  | toolhead_entry_to_extruder  | 8  | 12.9 |
-  | variable_blade_pos<br>(mmu_cut_tip.cfg) | 37.5 | 49.3 |
+| Dimension | CW2 | G2E |
+| --------- | --- | --- |
+| `toolhead_entry_to_extruder` | 13 | 13.29 |
 
-_(submit your verified setup)_
+**CW2** dimensions for each hotend:
+
+| Dimension | Rapido/R2 | Dragon SF | Dragon HF | Revo |
+| --------- | ------ | --------- | --------- | ---- |
+| `toolhead_extruder_to_nozzle`<br>(in mmu_parameters.cfg) | | | | 72 | 
+| `toolhead_sensor_to_nozzle`<br>(in mmu_parameters.cfg) | | | | 62 | 
+| `variable_blade_pos`<br>(in mmu_macro_vars.cfg) | | | | 37.5 |
+| `variable_retract_length`<br>(in mmu_macro_vars.cfg) | | | | |
+| `variable_pushback_length`<br>(in mmu_macro_vars.cfg) | | | | |
+
+**G2E** dimensions for each hotend:
+
+| Dimension | Rapido/R2 | Dragon SF | Dragon HF | Revo |
+| --------- | ------ | --------- | --------- | ---- |
+| `toolhead_extruder_to_nozzle`<br>(in mmu_parameters.cfg) | 99.38 | | | 99.18<sup>1</sup> |
+| `toolhead_sensor_to_nozzle`<br>(in mmu_parameters.cfg) | 79.78 | | | 79.58<sup>1</sup> |
+| `variable_blade_pos`<br>(in mmu_macro_vars.cfg) | 61.22 | | | 61.03<sup>1</sup> |
+| `variable_retract_length`<br>(in mmu_macro_vars.cfg) | 32.22 | | | 32.03<sup>2</sup> |
+| `variable_pushback_length`<br>(in mmu_macro_vars.cfg) | 31.22 | | | 31.03<sup>2</sup> |  
+
+*<sup>1</sup> Taken directly from CAD - <ins>NOT</ins> tested.*  
+*<sup>2</sup> Estimated based on Rapido*  
+
+** These settings assume you have turned off all the slicer settings like toolchange retraction!<br>
+_(please submit your verified additions to build out this table)_
 
 Read about the loading and unloading sequences [here](https://github.com/moggieuk/Happy-Hare#---filament-loading-and-unloading-sequences).
 
@@ -405,6 +427,7 @@ persistence_level: 3
 
 This section contains an eclectic set of remaining options. Ask on discord if any aren't clear, however a couple warrant further explantion:<br>
 `default_extruder_temp` - This is the default temperature for performing swaps and tip forming when outside of a print. It's also a fallback in the event that your printer tries to print with an unsafe temperature after a pause. When printing, the slicer will be responsible for setting the temperature. You may want to set this to a middleground temperature that works "well enough" with the full range of filaments you regularly print.<br>
+`extruder_temp_variance` - When waiting for extruder to get to temperature this is the permissible range: desired +/- extruder_temp_variance.<br>
 `slicer_tip_park_pos` - If you use the default slicer tip shaping logic then it will leave the filament at a particular place in the extruder. Unfortunately Happy Hare has no way to detect this like it can when it takes care of tip shaping. This parameter usually exists in the slicer and setting it will pass on to Happy Hare for more efficient subsequent unloading.<br>
 `auto_calibrate_gates` - discussed in main readme but avoids having to calibrate since that are automatically calibrated on first use.<br>
 `strict_filament_recovery` - Occassionaly Happy Hare will be forced to try to figure our where the filament is. It employs various mechanisms to achive this depending on the capability of the MMU. Some of this steps are invasive (e.g. warming the extruder when it is cold) and are therefore skipped by default. Enabling this option will force extra detection steps.
@@ -419,6 +442,7 @@ extruder: extruder              # Name of the toolhead extruder that MMU is usin
 timeout_pause: 72000            # Idle time out in seconds used when in MMU pause state
 disable_heater: 600             # Delay in seconds after which the hotend heater is disabled in the MMU_PAUSE state
 default_extruder_temp: 200      # The baseline temperature for performing swaps and forming tips outside of a print
+extruder_temp_variance: 2       # When waiting for extruder temperature this is the +/- permissible variance in degrees (>= 1)
 z_hop_height_error: 5           # Height in mm of z_hop move on pause to avoid blob on print
 z_hop_height_toolchange: 1      # Height in mm of z_hop move on toolchange or runout to avoid blob on print
 z_hop_speed: 15                 # Speed of z_hop move (mm/s)
@@ -528,4 +552,3 @@ When `mmu_vendor` and `mmu_version` are set, Happy Hare will use the correct CAD
 #
 #encoder_default_resolution: 0.676	# Approximate resolution(mm) of a single encoder "count". Not used for measurement
 ```
-

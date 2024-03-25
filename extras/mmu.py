@@ -3642,9 +3642,11 @@ class Mmu:
                         self._set_filament_position(-self.toolhead_sensor_to_nozzle)
 
                 # Finish up with regular extruder exit movement. Optionally synced
-                length = max(0, self.toolhead_extruder_to_nozzle + self._get_filament_position()) + self.toolhead_unload_safety_margin
+                length = self.toolhead_unload_safety_margin
+                self._servo_down()
+                speed = self.extruder_sync_unload_speed
                 self._log_debug("Unloading last %.1fmm to exit the extruder%s" % (length, " (synced)" if synced else ""))
-                _,_,measured,delta = self._trace_filament_move("Unloading extruder", -length, speed=speed, motor=motor, wait=True)
+                _,_,measured,delta = self._trace_filament_move("Unloading extruder", -length, speed=speed, "gear+extruder", wait=True)
 
                 # Best guess of filament position is right at extruder entrance or just beyond if synced
                 if synced:
@@ -3893,8 +3895,8 @@ class Mmu:
             self._log_debug("Testing for filament in extruder by retracting on extruder stepper only")
             if not length:
                 length = self.encoder_move_step_size
-            self._servo_up()
-            _,_,measured,_ = self._trace_filament_move("Moving extruder to test for filament exit", -length, speed=self.extruder_unload_speed, motor="extruder")
+            self._servo_down()
+            _,_,measured,_ = self._trace_filament_move("Moving extruder to test for filament exit", -length, speed=self.extruder_unload_speed, motor="gear+extruder")
             detected = measured > self.encoder_min
             self._log_debug("Filament %s in extruder" % ("detected" if detected else "not detected"))
             return detected, measured
@@ -3954,8 +3956,8 @@ class Mmu:
                         detected = False
                     elif synced:
                         # A further test is needed to see if the filament is actually in the extruder
-                        #detected, moved = self._test_filament_in_extruder_by_retracting()
-                        #park_pos += moved
+                        detected, moved = self._test_filament_in_extruder_by_retracting()
+                        park_pos += moved
 
             self._set_filament_position(-park_pos)
             self._set_encoder_distance(initial_encoder_position + park_pos)

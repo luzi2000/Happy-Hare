@@ -93,12 +93,101 @@ New Features:
 - CUT_TIP macro now has option to control whether movement goes back to wipetower or not after cut
 - Faster pausing on runout
 - Fix for not automatically engaging the sync/servo after fixing error and resuming.
-- New [doc](https://github.com/moggieuk/Happy-Hare/blob/main/doc/toolchange_movement.md) on how to setup your slicer to disable tip forming
-- New [doc](https://github.com/moggieuk/Happy-Hare/blob/main/doc/toolchange_movement.md) on how to setup toolhead movement during toolchange or error
+  - New [doc](https://github.com/moggieuk/Happy-Hare/blob/main/doc/slicer_setup.md) on how to setup your slicer to disable tip forming
+  - New [doc](https://github.com/moggieuk/Happy-Hare/blob/main/doc/toolchange_movement.md) on how to setup toolhead movement during toolchange or error
 - Couple of new states to filament movement.  These are to enable and display of various other sensors such as a gate sensor (option to encoder) and pre-entry extruder sensor.
 - New rendering of filament position in console (and KlipperScreen-HH) showing all sensor options if fitted
 - Imporved use of miscellaneous sensors to detect errors or non-errors
 - Cleanup of the status displays of various commands `MMU_GATE_MAP`, `MMU_TTG_MAP`, `MMU_ENDLESS_SPOOL`
 - New encoder calibration routine that allows calibration that "remembers" gate homing point and compensates for space between gate sensor and encoder if both are fitted
 - Other bug fixes report in github "Issues"
+
+### v2.4.3
+- Bug fixes reported via github "Issues"
+- Added capability to install to auto-check github to ensure the latest version and to switch branches with `-b <branch name>` option
+
+### v2.5.0 (Recommend Klipperscreen-Happy Hare edition should be updated to get dialog popup fixes)
+This release centralizes macro configuration and extends will a lot more pre-packaged options
+- Macro config moved into a unified `mmu_macro_vars.cfg`.
+- Default macros have become read-only with a formal way to add custom extensions
+- New recommended "print_start" and end integration
+  - See https://github.com/moggieuk/Happy-Hare/blob/main/doc/slicer_setup.md
+- New `MMU_SLICER_TOOLS_MAP` command that is used by the "print_start" and for easy integration of non-wipetower purge options like the excellent "Blobifier"
+E.g.
+```
+> MMU_SLICER_TOOL_MAP DETAIL=1
+--------- Slicer MMU Tool Summary ---------
+2 color print (Purge volume map loaded)
+T0 (Gate 0, ASA, ff0000, 245°C)
+T1 (Gate 1, ABS+, 00fe02, 240°C)
+T6 (Gate 6, ABS, 0310fe, 240°C)
+Initial Tool: T0
+-------------------------------------------
+Purge Volume Map:
+To -> T0   T1   T2   T3   T4   T5   T6   T7   T8
+T0    -   200  210  210  200  200  200  210  210
+T1   200   -   210  210  200  200  200  210  210
+T2   210  210   -   220  210  210  210  220  220
+T3   210  210  220   -   210  210  210  220  220
+T4   200  200  210  210   -   200  200  210  210
+T5   200  200  210  210  200   -   200  210  210
+T6   200  200  210  210  200  200   -   210  210
+T7   210  210  220  220  210  210  210   -   220
+T8   210  210  220  220  210  210  210  220   -
+```
+- New [doc](https://github.com/moggieuk/Happy-Hare/blob/main/doc/tip_forming_and_purging.md) on tip forming and purging
+- New printer variables:
+   - `printer.mmu.slicer_tool_map.initial_tool`
+   - `printer.mmu.slicer_tool_map.tools.<tool_num>.material|color|temp`
+   - `printer.mmu.slicer_tool_map.purge_volumes`
+   - `printer.mmu.runout` which is true during runout toolchange
+   - `printer.mmu.active_gate` map of a attributes of current filament (like color, material, temp,..)
+- Z-hop modfications:
+   - By default HH will not return to pre-toolchange position (will only restore z-height).
+   - New `variable_restore_xy_pos: True|False` to control sequence macros return to starting pos or let the slicer do it. This has benefit when printing without a wipe tower so the print is not contaminated at the point of tool-change
+- New "addons" folder for recommended third-party extensions with ready-to-use configs
+   - Includes @kevinakasam's "EREC" filament cutter logic for cutting at the MMU (ERCF specific)
+   - Includes @dendrowen's excellent "Blobifier" - intelligent purging that doesn't require a wipe tower!! (Any MMU)
+- Enhanced `MMU_SENSORS` command for quick review of all mmu sensors
+- New (optional) popup dialog option in Mainsail/KlipperScreen/Fluidd when MMU pauses on error
+- Two new pre-processing placeholders: !materials! and !purge_volumes!
+- Also, thanks to the Blobifer author, @dendrowen, the "MMU Statistics" has been given some love with new layout and some new customization. For both total stats and current job status. See `console_stat_*` options in `mmu_parameters.cfg`). Note advanced formatting on Python3 only.
+```
+MMU Statistics:
++------------+-----------------------+--------------------------+----------+
+| 1895(1230) |       unloading       |         loading          | complete |
+|   swaps    | pre  |    -    | post | pre  |    -    |   post  |   swap   |
++------------+------+---------+------+------+---------+---------+----------+
+|     total  | 0:47 | 6:54:24 | 0:02 | 0:02 | 5:35:31 | 6:40:30 | 20:05:52 |
+|      └ avg | 0:00 |    0:13 | 0:00 | 0:00 |    0:10 |    0:12 |     0:35 |
+|  this job  | 0:36 | 4:26:51 | 0:01 | 0:01 | 3:34:34 | 4:34:54 | 13:22:01 |
+|      └ avg | 0:00 |    0:12 | 0:00 | 0:00 |    0:10 |    0:13 |     0:38 |
+|       last | 0:00 |    0:12 | 0:00 | 0:00 |    0:10 |    0:17 |     0:42 |
++------------+------+---------+------+------+---------+---------+----------+
+
+11:43:27 spent paused over 10 pauses (All time)
+8:15:38 spent paused over 3 pauses (This job)
+Number of swaps since last incident: 105 (Record: 1111)
+
+Gate Statistics:
+#0: 😎, #1: 😎, #2: —, #3: —, #4: —, #5: —, #6: 😎, #7: —, #8: —
+```
+
+### v2.5.1
+The release provides more flexibilty in tool change movement, introduces consumption counters, optimizes statistics output
+- New (moonraker) pre-processing option to lookahead for next print location to allow for option to move to the NEXT print position on completion of tool change. Requires addition to `[mmu_server]` section of `moonraker.conf`:
+  - `enable_toolchange_next_pos: True`
+- `variable_restore_xy_pos` can now be "none", "last" or "next" (next being new functionality)
+- Augmented `MMU_STATS` functionality to provide "consumption counters" that can warn or even pause your print when threshold is exceeded
+- New doc page to explain statistics and consumption counters: [/doc/stats.md](/doc/stats.md)
+- New doc page to explain spoolman config and use: [/doc/spoolman_support.md](/doc/spoolman_support.md)
+- Elimination of "h" option to ERCFv2 MMU - ThumperBlock are not a compatible 23mm wide so no longer required
+- More accurate timing of tool change phases
+- Defaults for "white" and "black" filament can not be configured in `mmu_macro_vars.cfg`
+- Fixes to `printer.mmu.runout` and `printer.mmu.last_tool` for better accuracy at all possible times
+- Filament remaining in toolhead is now tracked accross reboots / restarts to prevent over extruding initial load
+- `custom_color` is now a more intuitive `slicer_color` and set with the `MMU_SLICER_TOOL_MAP` command (MMU_START_SETUP does this for you)
+- New config parameter `extruder_temp_variance` to specify the +/- delta allowable when waiting for extruder temperature
+- Updates and to bloblifier macro (needs latest klipper)
+- Allow specifying spool_id in advance for supporting RFID readers. You can read more about it [here](/doc/spoolman_support.md)
 

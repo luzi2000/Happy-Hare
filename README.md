@@ -1,4 +1,8 @@
-这个版本的happy-hare主要解决无打印头传感器模式的相关兼容问题和BUG处理
+这个版本的happy-hare主要解决无打印头传感器模式的相关兼容问题和BUG处理，玩的开心！
+
+
+
+
 
 <p align="center">
   <img src="https://github.com/moggieuk/Happy-Hare/blob/main/doc/happy_hare_logo.jpg" alt='Happy Hare KlipperScreen' width='30%'>

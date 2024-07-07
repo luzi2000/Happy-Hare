@@ -681,6 +681,8 @@ class Mmu:
         # Initializer tasks
         self.gcode.register_command('__MMU_BOOTUP_TASKS', self.cmd_MMU_BOOTUP_TASKS, desc = self.cmd_MMU_BOOTUP_TASKS_help) # Bootup tasks
 
+        self.gcode.register_command('__MMU_TEST_FILAMENT_AT_GATE',self.cmd_MMU_TEST_FILAMENT_AT_GATE)
+
         # We setup MMU hardware during configuration since some hardware like endstop requires
         # configuration during the MCU config phase, which happens before klipper connection
         # This assumes that the hardware configuartion appears before the `[mmu]` section
@@ -3379,7 +3381,14 @@ class Mmu:
         if self.test_random_failures and randint(0, 10) == 0:
             raise MmuError("Randomized testing failure")
 
-
+### 自定义命令
+    def cmd_MMU_TEST_FILAMENT_AT_GATE(self,gcmd):
+        self._servo_down()
+        found=self._buzz_gear_motor()
+        if found:
+            self._servo_up()
+            raise gcmd.error("filament detected before it excision filament")
+        
 ### STATE GCODE COMMANDS
 
     cmd_MMU_help = "Enable/Disable functionality and reset state"

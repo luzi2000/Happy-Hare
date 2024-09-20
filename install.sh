@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2022  moggieuk#6538 (discord) moggieuk@hotmail.com
 #
-VERSION=2.60 # Important: Keep synced with mmy.py
+VERSION=2.70 # Important: Keep synced with mmy.py
 
 SCRIPT="$(readlink -f "$0")"
 SCRIPTFILE="$(basename "$SCRIPT")"
@@ -91,7 +91,7 @@ PIN[MELLOW-EASY-BRD-CAN,pre_gate_11_pin]="";               PIN[MELLOW-EASY-BRD-C
 
 # Pins for Fysetc Burrows ERB board (original v1 and v2)
 #
-PIN[ERB,gear_uart_pin]="gpio20";                           PIN[ERBv2,gear_uart_pin]="gpio20";
+PIN[ERB,gear_uart_pin]="gpio20";                           PIN[ERBv2,gear_uart_pin]="gpio11";
 PIN[ERB,gear_step_pin]="gpio10";                           PIN[ERBv2,gear_step_pin]="gpio10";
 PIN[ERB,gear_dir_pin]="gpio9";                             PIN[ERBv2,gear_dir_pin]="gpio9";
 PIN[ERB,gear_enable_pin]="gpio8";                          PIN[ERBv2,gear_enable_pin]="gpio8";
@@ -515,25 +515,27 @@ unlink_mmu_plugins() {
 }
 
 parse_file() {
-    filename="$1"
+    file="$1"
     prefix_filter="$2"
     namespace="$3"
     checkdup="$4"
     checkdup=""
 
-    if [ ! -f "${filename}" ]; then
+    if [ ! -f "${file}" ]; then
         return
     fi
 
     # Read old config files
     while IFS= read -r line
     do
-        # Remove comments
+        # Remove leading spaces, comments and config sections
+        line="${line#"${line%%[![:space:]]*}"}"
         line="${line%%#*}"
+        line="${line%%[*}"
         line="${line%%;*}"
 
         # Check if line is not empty and contains variable or parameter
-        if [ ! -z "$line" ] && { [ -z "$prefix_filter" ] || [ "${line#$prefix_filter}" != "$line" ]; }; then
+         if [ ! -z "$line" ] && { [ -z "$prefix_filter" ] || [[ "$line" =~ ^($prefix_filter) ]]; }; then
             # Split the line into parameter and value
             IFS=":=" read -r parameter value <<< "$line"
 
@@ -559,7 +561,7 @@ parse_file() {
                 fi
             fi
         fi
-    done < "${filename}"
+    done < "${file}"
 }
 
 update_copy_file() {
@@ -571,10 +573,10 @@ update_copy_file() {
     # Read the file line by line
     while IFS="" read -r line || [ -n "$line" ]
     do
-        if echo "$line" | grep -E -q '^[#;]'; then
+        if echo "$line" | grep -E -q '^[[:space:]]*#'; then
             # Just copy simple comments
             echo "$line"
-        elif [ ! -z "$line" ] && { [ -z "$prefix_filter" ] || [ "${line#$prefix_filter}" != "$line" ]; }; then
+        elif [ ! -z "$line" ] && { [ -z "$prefix_filter" ] || [[ "$line" =~ ^($prefix_filter) ]]; }; then
             # Line of interest
             # Split the line into the part before # and the part after #
             parameterAndValueAndSpace=$(echo "$line" | sed 's/^[[:space:]]*//' | sed 's/;/# /' | cut -d'#' -f1)
@@ -645,11 +647,6 @@ read_default_config() {
     echo -e "${INFO}Reading default configuration parameters..."
     parse_file "${SRCDIR}/config/base/mmu_parameters.cfg" ""          "_param_" "checkdup"
     parse_file "${SRCDIR}/config/base/mmu_macro_vars.cfg" "variable_" ""        "checkdup"
-    parse_file "${SRCDIR}/config/base/mmu_software.cfg"   "variable_" ""        "checkdup"
-    parse_file "${SRCDIR}/config/base/mmu_sequence.cfg"   "variable_" ""        "checkdup"
-    parse_file "${SRCDIR}/config/base/mmu_form_tip.cfg"   "variable_" ""        "checkdup"
-    parse_file "${SRCDIR}/config/base/mmu_cut_tip.cfg"    "variable_" ""        "checkdup"
-    parse_file "${SRCDIR}/config/base/mmu_leds.cfg"       "variable_" ""        "checkdup"
     for file in `cd ${SRCDIR}/config/addons ; ls *.cfg | grep -v "_hw" | grep -v "my_"`; do
         parse_file "${SRCDIR}/config/addons/${file}"      "variable_" ""        "checkdup"
     done
@@ -688,7 +685,7 @@ read_previous_config() {
         if [ ! "${_param_extruder_homing_current}" == "" ]; then
             _param_extruder_collision_homing_current=${_param_extruder_homing_current}
         fi
-        if [ ! "${_param_log_visual}" == "2" ]; then
+        if [ "${_param_log_visual}" == "2" ]; then
             _param_log_visual=1
         fi
         if [ "${_param_servo_buzz_gear_on_down}" == "" ]; then
@@ -721,43 +718,26 @@ read_previous_config() {
         if [ "${_param_servo_always_active}" == "" ]; then
             _param_servo_always_active=0
         fi
+        if [ "${_param_toolhead_post_load_tighten}" == "1" ]; then
+            # Old Boolean -> New Percent
+            _param_toolhead_post_load_tighten=60
+        fi
 
         if [ "${_param_log_file_level}" -gt 2 ]; then
             _param_log_file_level=2
         fi
-    fi
 
-    cfg="mmu_filametrix.cfg"
-    dest_cfg=${KLIPPER_CONFIG_HOME}/mmu/base/${cfg}
-
-    if [ -f "${dest_cfg}" ]; then
-        echo -e "${INFO}Reading ${cfg} configuration from previous installation..."
-        parse_file "${dest_cfg}" "variable_"
-
-        # Hack to convert from mm/min to mm/sec and 'spd' to 'speed' for consistency in other macros
-        #
-        if [ ! "${variable_rip_speed}" == "" ]; then
-            variable_rip_speed=$(echo "$variable_rip_speed" | awk '{if ($1 > 250) print int($1 / 60); else print $1}')
-        fi
-        if [ ! "${variable_evacuate_speed}" == "" ]; then
-            variable_evacuate_speed=$(echo "$variable_evacuate_speed" | awk '{if ($1 > 250) print int($1 / 60); else print $1}')
-        fi
-        if [ ! "${variable_extruder_move_speed}" == "" ]; then
-            variable_extruder_move_speed=$(echo "$variable_extruder_move_speed" | awk '{if ($1 > 250) print int($1 / 60); else print $1}')
-        fi
-        if [ ! "${variable_travel_spd}" == "" ]; then
-            variable_travel_speed=$(echo "$variable_travel_spd" | awk '{if ($1 > 300) print int($1 / 60); else print $1}')
-        fi
-        if [ ! "${variable_cut_fast_move_spd}" == "" ]; then
-            variable_cut_fast_move_speed=$(echo "$variable_cut_fast_move_spd" | awk '{if ($1 > 300) print int($1 / 60); else print $1}')
-        fi
-        if [ ! "${variable_cut_slow_move_spd}" == "" ]; then
-            variable_cut_slow_move_speed=$(echo "$variable_cut_slow_move_spd" | awk '{if ($1 > 250) print int($1 / 60); else print $1}')
+        if [ ! "${_param_enable_spoolman}" == "" ]; then
+            if [ ! "${_param_enable_spoolman}" == "1" ]; then
+                _param_spoolman_support="readonly"
+            else
+                _param_spoolman_support="off"
+            fi
         fi
     fi
 
     # TODO Remove mmu_variables once everybody has upgraded
-    for cfg in mmu_variables.cfg mmu_software.cfg mmu_sequence.cfg mmu_cut_tip.cfg mmu_form_tip.cfg mmu_leds.cfg mmu_macro_vars.cfg; do
+    for cfg in mmu_variables.cfg mmu_software.cfg mmu_sequence.cfg mmu_cut_tip.cfg mmu_form_tip.cfg mmu_macro_vars.cfg; do
         dest_cfg=${KLIPPER_CONFIG_HOME}/mmu/base/${cfg}
 
         if [ ! -f "${dest_cfg}" ]; then
@@ -766,7 +746,11 @@ read_previous_config() {
             fi
         else
             echo -e "${INFO}Reading ${cfg} configuration from previous installation..."
-            parse_file "${dest_cfg}" "variable_"
+            if [ "${cfg}" == "mmu_macro_vars.cfg" ]; then
+                parse_file "${dest_cfg}" "variable_|filename"
+            else
+                parse_file "${dest_cfg}" "variable_"
+            fi
 
             if [ ! "${variable_enable_park}" == "" ]; then
                 variable_enable_park=$(convert_to_boolean_string ${variable_enable_park})
@@ -968,17 +952,28 @@ copy_config_files() {
             # Ensure that supplemental user added params are retained. These are those that are
             # by default set internally in Happy Hare based on vendor and version settings but
             # can be overridden.  This set also includes a couple of hidden test parameters.
-            supplemental_params="cad_gate0_pos cad_gate_width cad_bypass_offset cad_last_gate_offset cad_block_width cad_bypass_block_width cad_bypass_block_delta gate_parking_distance encoder_default_resolution"
-            hidden_params="virtual_selector homing_extruder test_random_failures"
-            for var in $(set | grep '^_param_' | cut -d'=' -f1); do
+            echo "" >> $dest
+            echo "# SUPPLEMENTAL USER CONFIG retained after upgrade --------------------------------------------------------------------" >> $dest
+            echo "#" >> $dest
+            supplemental_params="cad_gate0_pos cad_gate_width cad_bypass_offset cad_last_gate_offset cad_block_width cad_bypass_block_width cad_bypass_block_delta cad_selector_tolerance gate_parking_distance variable_gate_ratios encoder_default_resolution gate_material gate_color gate_spool_id gate_status gate_filament_name gate_speed_override endless_spool_groups tool_to_gate_map"
+            hidden_params="virtual_selector homing_extruder test_random_failures test_random_failures test_disable_encoder test_force_in_print serious mitigate_ttc"
+            for var in $(set | grep '^_param_' | cut -d'=' -f1 | sort); do
                 param=${var#_param_}
                 for item in ${supplemental_params} ${hidden_params}; do
                     if [ "$item" = "$param" ]; then
                         value=$(eval echo "\$${var}")
-                        echo "${param}: ${value} # User added and retained after upgrade"
+                        echo "${param}: ${value}"
+                        eval unset ${var}
                     fi
                 done
             done >> $dest
+
+            # If any params are still left worn the user because they will be lost (should have been upgraded)
+            for var in $(set | grep '^_param_' | cut -d= -f1); do
+                value=$(eval echo \$$var)
+                param=${var#_param_}
+                echo "Parameter: '$param: $value' is deprecated and has been removed"
+            done
 
         # Variables macro ---------------------------------------------------------------------
         elif [ "${file}" == "mmu_macro_vars.cfg" ]; then
@@ -1000,15 +995,13 @@ copy_config_files() {
 
             if [ "${INSTALL}" -eq 1 ]; then
                 cat ${src} | sed -e "\
-                    s%{klipper_config_home}%${KLIPPER_CONFIG_HOME}%g; \
                     s%{tx_macros}%${tx_macros}%g; \
                         " > ${dest}
             else
                 cat ${src} | sed -e "\
-                    s%{klipper_config_home}%${KLIPPER_CONFIG_HOME}%g; \
                     s%{tx_macros}%${tx_macros}%g; \
                         " > ${dest}.tmp
-                update_copy_file "${dest}.tmp" "${dest}" "variable_" && rm ${dest}.tmp
+                update_copy_file "${dest}.tmp" "${dest}" "variable_|filename" && rm ${dest}.tmp
             fi
 
         # Everything else is read-only symlink ------------------------------------------------
@@ -1821,8 +1814,10 @@ if [ "$UNINSTALL" -eq 0 ]; then
         result=$(awk -v n1="$VERSION" -v n2="$FROM_VERSION" 'BEGIN {print (n1<n2) ? "1" : "0"}')
         if [ "$result" -eq 1 ]; then
             echo -e "${WARNING}Trying to update from version ${FROM_VERSION} to ${VERSION}"
-            echo -e "${ERROR}Cannot automatically 'upgrade' to earlier version. You must do this by hand"
-            exit 1
+            echo -e "${ERROR}Automatic 'downgrade' to earlier version is not garanteed. If you encounter startup problems you may"
+            echo -e "${ERROR}need to manually compare the backed-up 'mmu_parameters.cfg' with current one to restore differences"
+#            echo -e "${ERROR}Cannot automatically 'upgrade' to earlier version. You must do this by hand"
+#            exit 1
         elif [ ! "${FROM_VERSION}" == "${VERSION}" ]; then
             echo -e "${WARNING}Upgrading from version ${FROM_VERSION} to ${VERSION}..."
         fi
@@ -1863,9 +1858,12 @@ else
 fi
 
 if [ "$INSTALL" -eq 0 ]; then
+    if [ "$VERSION" == "2.70" -a "$FROM_VERSION" != "2.70" ]; then
+        restart_moonraker
+    fi
     restart_klipper
 else
-    echo -e "${WARNING}Klipper not restarted automatically because you need to validate and complete config"
+    echo -e "${WARNING}Klipper not restarted automatically because you need to validate and complete config first"
 fi
 
 if [ "$UNINSTALL" -eq 0 ]; then

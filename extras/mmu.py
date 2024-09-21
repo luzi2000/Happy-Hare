@@ -4816,9 +4816,11 @@ class Mmu:
 
                 # Finish up with regular extruder exit movement. Optionally synced
                 length = max(0, self.toolhead_extruder_to_nozzle + self._get_filament_position()) + self.toolhead_unload_safety_margin
+                
+                synced=True
                 self._servo_down()
                 speed = self.extruder_sync_unload_speed
-                self._log_debug("Unloading last %.1fmm to exit the extruder%s" % (length, " (synced)" if synced else ""))
+                self.log_debug("Unloading last %.1fmm to exit the extruder%s" % (length, " (synced)" if synced else ""))
                 _,_,measured,delta = self._trace_filament_move("Unloading extruder", -length, speed=speed, motor="gear+extruder", wait=True)
                 # Best guess of filament position is right at extruder entrance or just beyond if synced
                 if synced:
